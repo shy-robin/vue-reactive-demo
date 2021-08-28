@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="app">
+    <div>
+      <input type="text" v-model="message">
+      message: {{ message }}
+    </div>
+    <div>
+      <input type="text" v-model="info.name">
+      info.name: {{ info.name }}
+    </div>
+    <div>
+      <input type="text" v-model="info.gender">
+      info.gender: {{ info.gender }}
+    </div>
+    <div>
+      <input type="text" v-model="info.age">
+      info.age: {{ info.age }}
+    </div>
+  </div>
+</body>
+<script src="./response.js"></script>
+<script>
+  const app = new Vue({
+    el: '#app',
+    data: {
+      message: 'Hello',
+      info: {
+        name: 'Tom',
+        gender: 'male',
+        age: 18
+      }
+    }
+  })
+</script>
+</html>
