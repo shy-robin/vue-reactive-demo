@@ -1,3 +1,38 @@
+# Vue响应式原理
+
+## 流程图
+
+![](https://gitee.com/gainmore/imglib/raw/master/img/20210828225342.png)
+
+从流程图可以看出，Vue 的响应式原理设计了五个类：`Vue`、`Observer`、`Compile`、`Dep`、`Watcher`。
+
+## Vue
+
+实例化一个 Vue 对象是使用 Vue 的第一步。
+
+Vue 的初始化需要给 Vue 传入一个对象，形如：
+
+```js
+const vm = new Vue({
+    el: '#app',
+    data: {
+        name: 'xxx',
+        info: {}
+    },
+    created() {
+		//...
+    }
+})
+```
+
+其中，`el` 和 `data` 这两个属性是必不可少的。
+
+- el 指定了 Vue 作用的区域；
+- data 制定了 Vue 双向绑定的数据。
+
+这两个属性分别传给 `Compile` 和 `Observer` 这两个类去执行。
+
+```js
 class Vue {
   constructor(options) {
     // 1.保存数据
@@ -29,7 +64,13 @@ class Vue {
     })
   }
 }
+```
 
+
+
+## Observer
+
+```js
 class Observer {
   constructor(data) {
     this.data = data
@@ -71,7 +112,13 @@ class Observer {
     })
   }
 }
+```
 
+
+
+## Dep
+
+```js
 // 订阅器（收集订阅者 + 通知订阅者更新）
 class Dep {
   constructor() {
@@ -86,30 +133,13 @@ class Dep {
     })
   }
 }
-
-// 订阅者（更新视图）
-class Watcher {
-  // vm: Vue 实例，里面保存了所有 data
-  // key: 属性名，通过 key 可以找到对应的属性
-  // cb: 当前 watcher 如何更新自己的文本内容的回调函数
-  constructor(vm, key, cb) {
-    this.vm = vm
-    this.key = key
-    this.cb = cb
-
-    // 初始化
-    Dep.target = this // 1.把当前 watcher 缓存起来
-    this.update() // 2.更新触发 getter，因为缓存中有值，所以会把 watcher 加入 dep
-    Dep.target = null // 3.清空缓存
-  }
-
-  update() { // 更新（直接调用 watcher 的 update 不会将 watcher 加入 dep）
-    const value = this.key.split('.').reduce((v, k) => v[k], this.vm) // 会触发 getter
-    this.cb(value)
-  }
-}
+```
 
 
+
+## Compile
+
+```js
 // 对 html 文档进行模板编译
 class Compile {
   constructor(el, vm) {
@@ -192,3 +222,59 @@ class Compile {
     node.childNodes.forEach(childNode => this.replace(childNode))
   }
 }
+```
+
+
+
+## Watcher
+
+```js
+// 订阅者（更新视图）
+class Watcher {
+  // vm: Vue 实例，里面保存了所有 data
+  // key: 属性名，通过 key 可以找到对应的属性
+  // cb: 当前 watcher 如何更新自己的文本内容的回调函数
+  constructor(vm, key, cb) {
+    this.vm = vm
+    this.key = key
+    this.cb = cb
+
+    // 初始化
+    Dep.target = this // 1.把当前 watcher 缓存起来
+    this.update() // 2.更新触发 getter，因为缓存中有值，所以会把 watcher 加入 dep
+    Dep.target = null // 3.清空缓存
+  }
+
+  update() { // 更新（直接调用 watcher 的 update 不会将 watcher 加入 dep）
+    const value = this.key.split('.').reduce((v, k) => v[k], this.vm) // 会触发 getter
+    this.cb(value)
+  }
+}
+```
+
+
+
+## 总结
+
+- 初始化 Vue 是需要传入一个 options 对象，这个对象中必须包含 el 和 data 两个参数；
+- 其中，data 会传入到 Observer 类，el 会被传入到 Compile 类；
+- 在 Observer 中会递归每个 data 属性，并通过 defineReactive 方法给每个属性添加响应式，其中会给每个属性设置 getter、setter，然后创建一个 Dep 订阅器，用于收集所有依赖的 watcher 实例；
+- 在 Compile 中会根据 el 这个选择器，获取到对应的 DOM，然后创建一个 documentFragment，将 DOM 里的节点都加入进 fragment 中；
+- 之后会对 fragment 进行模板编译解析，通过递归每个节点，利用正则表达式匹配出插值表达式，然后获取到插值表达式对应的属性；
+- 每获取到一个插值表达式就需要创建一个 Watcher 实例，创建实例需要传入三个参数：vue 实例、插值表达式对应的属性名、更新 DOM 的回调函数；
+- Watcher 实例被创建时，就会调用自身的 update 函数，update 函数会获取 Vue 中 data 的属性，所以会触发 getter，因此会利用 Dep 的 addSub 方法将 watcher 实例添加到对应的订阅器 Dep 中，同时会调用更新回调函数，此时便对页面进行了初始化；
+- 之后，如果改变了 data 中的值，就会触发响应式数据的 setter，于是便会调用 Dep 的 notify 通知每个 watcher，之后每个 watcher 会调用 update 函数，update 函数内部又会调用绑定的更新回调函数使页面更新。
+
+**上述过程只是实现了 data -> view 的单向数据绑定，即 data 数据修改会触发 view 视图层更新；但是 view 视图更新却不能触发 data 更新。**
+
+要实现 view -> data 的绑定更加简单，只需要给 view 的 DOM 元素添加监听事件，比如给输入框添加 input 事件，监听用户的输入，然后再做一层绑定即可。
+
+## 实现代码
+
+- https://github.com/load-more/vue-reactive-demo
+
+## 参考资料
+
+- https://www.cnblogs.com/canfoo/p/6891868.html
+- https://www.bilibili.com/video/BV1Dr4y1c7xS
+
